@@ -1,13 +1,4 @@
-import { faker as fakerEN } from "@faker-js/faker";
-import { faker as fakerCS } from "@faker-js/faker/locale/cs_CZ";
-import { faker as fakerDE } from "@faker-js/faker/locale/de";
-import { faker as fakerFR } from "@faker-js/faker/locale/fr";
-import { faker as fakerSK } from "@faker-js/faker/locale/sk";
-import { faker as fakerRU } from "@faker-js/faker/locale/ru";
-import { faker as fakerIT } from "@faker-js/faker/locale/it";
-import { faker as fakerES } from "@faker-js/faker/locale/es";
-import { faker as fakerPT_BR } from "@faker-js/faker/locale/pt_BR";
-import { faker as fakerNL } from "@faker-js/faker/locale/nl";
+import { allLocales } from "@faker-js/faker";
 
 import * as fs from "fs";
 import latinize from "latinize";
@@ -151,18 +142,38 @@ class MultinomialNB {
 }
 
 // ---------- Static Faker Name Sources ----------
-const NAME_SOURCES = {
-  en: fakerEN.definitions.person.first_name,
-  cs: fakerCS.definitions.person.first_name,
-  de: fakerDE.definitions.person.first_name,
-  fr: fakerFR.definitions.person.first_name,
-  sk: fakerSK.definitions.person.first_name,
-  ru: fakerRU.definitions.person.first_name,
-  it: fakerIT.definitions.person.first_name,
-  es: fakerES.definitions.person.first_name,
-  pt_BR: fakerPT_BR.definitions.person.first_name,
-  nl: fakerNL.definitions.person.first_name,
-} as Record<string, { male: string[]; female: string[] }>;
+const NAME_SOURCES = Object.fromEntries(
+  Object.entries(allLocales)
+    .filter(([lang, locale]) => 
+      // Only include base European languages with sufficient name data
+      ![
+        "af_ZA",
+        "fr_BE",
+        "fr_CH",
+        "fr_SN",
+        "nl_BE",
+        "id_ID",
+        "es_MX",
+        "en_ZA",
+        "en_AU",
+        "en_GH",
+        "en_IN",
+        "de_AT",
+        "de_CH",
+        "ro_MD",
+        "pt_BR",
+        "uz_UZ_latin",
+        "he",
+        "ja",
+        "th",
+        "vi",
+        "ko"
+      ].includes(lang)
+      && (locale.person?.first_name?.male?.length ?? 0) > 100
+      && (locale.person?.first_name?.female?.length ?? 0) > 100
+  )
+    .map(([lang, locale]) => [lang, locale.person?.first_name])
+ ) as Record<string, { male: string[]; female: string[] }>;
 
 // ---------- Deterministic dataset ----------
 type Gender = "male" | "female";
