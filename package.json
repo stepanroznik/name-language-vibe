@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "train": "npx tsx name-origin-faker.ts train",
+    "predict": "npx tsx name-origin-faker.ts predict"
   },
   "keywords": [],
   "author": "",
@@ -12,9 +13,11 @@
   "dependencies": {
     "@faker-js/faker": "^10.1.0",
     "cyrillic-to-translit-js": "^3.2.1",
-    "latinize": "^2.0.0"
+    "latinize": "^2.0.0",
+    "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "@types/latinize": "^0.2.18"
+    "@types/latinize": "^0.2.18",
+    "@types/node": "^24.10.1"
   }
 }
