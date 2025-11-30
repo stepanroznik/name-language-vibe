@@ -163,14 +163,16 @@ const NAME_SOURCES = Object.fromEntries(
         "ro_MD",
         "pt_BR",
         "uz_UZ_latin",
+        "yo_NG",
+        "zh_CN",
         "he",
         "ja",
         "th",
         "vi",
         "ko"
       ].includes(lang)
-      && (locale.person?.first_name?.male?.length ?? 0) > 100
-      && (locale.person?.first_name?.female?.length ?? 0) > 100
+      && (locale.person?.first_name?.male?.length ?? 0) > 75
+      && (locale.person?.first_name?.female?.length ?? 0) > 75
   )
     .map(([lang, locale]) => [lang, locale.person?.first_name])
  ) as Record<string, { male: string[]; female: string[] }>;
