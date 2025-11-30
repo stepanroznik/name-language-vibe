@@ -1,4 +1,14 @@
-import { faker } from "@faker-js/faker";
+import { faker as fakerEN } from "@faker-js/faker";
+import { faker as fakerCS } from "@faker-js/faker/locale/cs_CZ";
+import { faker as fakerDE } from "@faker-js/faker/locale/de";
+import { faker as fakerFR } from "@faker-js/faker/locale/fr";
+import { faker as fakerSK } from "@faker-js/faker/locale/sk";
+import { faker as fakerRU } from "@faker-js/faker/locale/ru";
+import { faker as fakerIT } from "@faker-js/faker/locale/it";
+import { faker as fakerES } from "@faker-js/faker/locale/es";
+import { faker as fakerPT_BR } from "@faker-js/faker/locale/pt_BR";
+import { faker as fakerNL } from "@faker-js/faker/locale/nl";
+
 import * as fs from "fs";
 import latinize from "latinize";
 import CyrillicToTranslit from "cyrillic-to-translit-js";
@@ -8,7 +18,7 @@ const cyrillic = CyrillicToTranslit();
 // ---------- Name normalization ----------
 function normalizeName(name: string) {
   let s = cyrillic.transform(name); // Cyrillic → Latin
-  s = latinize(s); // remove diacritics
+  s = latinize(s); // strip diacritics
   return s.toLowerCase(); // lowercase
 }
 
@@ -65,13 +75,16 @@ class MultinomialNB {
   featureLogProb: Record<string, number[]> = {};
   vocabSize = 0;
   alpha = 1;
+
   fit(X: number[][], y: string[]) {
     this.vocabSize = X[0]!.length;
     this.classes = uniq(y);
+
     for (const cls of this.classes) {
       this.classCount[cls] = 0;
       this.featureCount[cls] = new Array(this.vocabSize).fill(0);
     }
+
     for (let i = 0; i < X.length; i++) {
       const cls = y[i]!;
       this.classCount[cls]!++;
@@ -79,6 +92,7 @@ class MultinomialNB {
       const fc = this.featureCount[cls]!;
       for (let j = 0; j < row!.length; j++) fc[j]! += row[j]!;
     }
+
     const total = X.length;
     for (const cls of this.classes) {
       this.classLogPrior[cls] = Math.log(
@@ -91,6 +105,7 @@ class MultinomialNB {
       );
     }
   }
+
   _jointLogLikelihood(vec: number[]) {
     const out: Record<string, number> = {};
     for (const cls of this.classes) {
@@ -102,6 +117,7 @@ class MultinomialNB {
     }
     return out;
   }
+
   predictProba(vec: number[]) {
     const logps = this._jointLogLikelihood(vec);
     const entries = Object.entries(logps);
@@ -110,10 +126,12 @@ class MultinomialNB {
       ([cls, v]) => [cls, Math.exp(v - maxLog)] as [string, number]
     );
     const sum = exps.reduce((a, b) => a + b[1], 0);
+
     const probs: Record<string, number> = {};
     for (const [cls, val] of exps) probs[cls] = val / sum;
     return probs;
   }
+
   toJSON() {
     return {
       classes: this.classes,
@@ -132,21 +150,41 @@ class MultinomialNB {
   }
 }
 
-// ---------- Faker dataset ----------
+// ---------- Static Faker Name Sources ----------
+const NAME_SOURCES = {
+  en: fakerEN.definitions.person.first_name,
+  cs: fakerCS.definitions.person.first_name,
+  de: fakerDE.definitions.person.first_name,
+  fr: fakerFR.definitions.person.first_name,
+  sk: fakerSK.definitions.person.first_name,
+  ru: fakerRU.definitions.person.first_name,
+  it: fakerIT.definitions.person.first_name,
+  es: fakerES.definitions.person.first_name,
+  pt_BR: fakerPT_BR.definitions.person.first_name,
+  nl: fakerNL.definitions.person.first_name,
+} as Record<string, { male: string[]; female: string[] }>;
+
+// ---------- Deterministic dataset ----------
 type Gender = "male" | "female";
+const LANGS = Object.keys(NAME_SOURCES);
 
-const LANGS = ["en", "de", "fr", "cz", "sk", "ru", "it", "es", "pt_BR", "nl"];
-
-function generateNames(nPerLang = 300, gender: Gender = "male") {
+function generateNames(gender: Gender) {
   const data: { name: string; language: string; gender: string }[] = [];
+
   for (const lang of LANGS) {
-    (faker as any).locale = lang; // bypass TypeScript typing
-    for (let i = 0; i < nPerLang; i++) {
-      const rawName = faker.person.firstName(gender);
-      const name = normalizeName(rawName);
-      data.push({ name, language: lang, gender });
+    const src = NAME_SOURCES[lang];
+    if (!src) continue;
+
+    const rawList = src[gender] || [];
+    for (const raw of rawList) {
+      data.push({
+        name: normalizeName(raw),
+        language: lang,
+        gender,
+      });
     }
   }
+
   return data;
 }
 
@@ -158,16 +196,21 @@ function trainAndSave(
   const filtered = data.filter((d) => d.gender === gender);
   const names = filtered.map((d) => d.name);
   const labels = filtered.map((d) => d.language);
+
   const vectorizer = new Vectorizer(3);
   vectorizer.fit(names);
+
   const X = names.map((n) => vectorizer.transform(n));
+
   const nb = new MultinomialNB();
   nb.fit(X, labels);
+
   const model = {
     vectorizer: vectorizer.toJSON(),
     nb: nb.toJSON(),
     meta: { gender },
   };
+
   fs.writeFileSync(`model-${gender}.json`, JSON.stringify(model, null, 2));
   console.log(
     `Trained ${gender} model on ${filtered.length} names, saved to model-${gender}.json`
@@ -190,6 +233,7 @@ function predict(model: ReturnType<typeof loadModel>, name: string) {
   const vec = model.vectorizer.transform(normalized);
   const probs = model.nb.predictProba(vec);
   const sorted = Object.entries(probs).sort((a, b) => b[1] - a[1]);
+
   console.log(`Prediction for "${name}" (${model.meta.gender}):`);
   for (const [lang, p] of sorted) console.log(`${lang}: ${p.toFixed(3)}`);
 }
@@ -203,10 +247,12 @@ if (!cmd) {
 }
 
 if (cmd === "train") {
-  const maleData = generateNames(300, "male");
-  const femaleData = generateNames(300, "female");
+  const maleData = generateNames("male");
+  const femaleData = generateNames("female");
+
   trainAndSave(maleData, "male");
   trainAndSave(femaleData, "female");
+
   process.exit(0);
 }
 
@@ -216,11 +262,15 @@ if (cmd === "predict") {
     console.error("Please provide a name");
     process.exit(1);
   }
+
   const modelMale = loadModel("model-male.json");
   const modelFemale = loadModel("model-female.json");
+
   console.log("Male model:");
   predict(modelMale, name);
+
   console.log("\nFemale model:");
   predict(modelFemale, name);
+
   process.exit(0);
 }
